@@ -1,0 +1,30 @@
+apiVersion: apps.emqx.io/v2beta1
+kind: EMQX
+metadata:
+  name: emqx
+  namespace: emqx
+spec:
+  image: emqx/emqx-enterprise:5.3.1
+  config:
+    data: |
+      listeners.ssl.default.enable = false
+      listeners.ws.default.enable = false
+      listeners.wss.default.enable = false
+  coreTemplate:
+    spec:
+      replicas: 3
+      volumeClaimTemplates:
+        resources:
+          requests:
+            storage: 10Gi
+        accessModes:
+          - ReadWriteOnce
+  replicantTemplate:
+    spec:
+      replicas: 3
+  listenersServiceTemplate:
+    spec:
+      type: LoadBalancer
+  dashboardServiceTemplate:
+    spec:
+      type: LoadBalancer

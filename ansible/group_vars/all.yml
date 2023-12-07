@@ -1,0 +1,6 @@
+deb_architecture_map:
+  "armv6l": "armhf"
+  "armv7l": "armhf"
+  "aarch64": "arm64"
+  "x86_64": "amd64"
+  "i386": "i386"
