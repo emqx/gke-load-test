@@ -32,7 +32,11 @@ kubectl -n emqx get svc emqx-listeners -o json | jq -r '.status.loadBalancer.ing
 ## Install loadgen
 
 ```bash
-./create-instance.sh loadgen
+./create-instance.sh loadgen-1 &
+./create-instance.sh loadgen-2 &
+./create-instance.sh loadgen-3 &
+./create-instance.sh loadgen-4 &
+./create-instance.sh loadgen-5 &
 ./generate-ansible-inventory.sh
 ansible-playbook -vv ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get svc emqx-listeners -o json | jq -r '.status.loadBalancer.ingress[0].ip')"
 ansible loadgen -m command -a 'systemctl start emqtt-bench' --become
