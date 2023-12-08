@@ -53,3 +53,16 @@ ansible loadgen -m command -a 'systemctl start emqtt-bench' --become
 gcloud compute instances delete $(seq -s ' ' -f 'loadgen-%g' 1 5)
 gcloud container clusters delete emqx
 ```
+
+## Troubleshoting
+
+```bash
+# ssh on the pool machine
+gcloud compute ssh gke-emqx-default-pool-8ffb4312-bjcg
+# list pods
+crictl pods
+# list containers
+crictl ps
+# get normal shell (then you can apt-get update, etc)
+/usr/bin/toolbox
+```
