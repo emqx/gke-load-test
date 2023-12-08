@@ -7,6 +7,7 @@ spec:
   image: emqx/emqx-enterprise:5.3.1
   config:
     data: |
+      log.console.level = error
       listeners.ssl.default.enable = false
       listeners.ws.default.enable = false
       listeners.wss.default.enable = false
@@ -20,11 +21,34 @@ spec:
         accessModes:
           - ReadWriteOnce
   replicantTemplate:
-    spec:
-      replicas: 3
     metadata:
       labels:
         app: emqx
+    spec:
+      replicas: 9
+      initContainers:
+        - name: busybox
+          image: busybox:stable
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            privileged: true
+            capabilities:
+              add:
+              - SYS_ADMIN
+              - NET_ADMIN
+              drop:
+              - ALL
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mount -o remount rw /proc/sys
+              sysctl -w net.core.somaxconn=65535
+              sysctl -w net.ipv4.tcp_tw_reuse=1
+              sysctl -w net.ipv4.ip_local_port_range='1025 65534'
+              sysctl -w fs.nr_open=2097152
+              sysctl -w fs.file-max=2097152
   listenersServiceTemplate:
     spec:
       type: LoadBalancer

@@ -27,8 +27,10 @@ gcloud config set compute/zone europe-central2-a
 ./install-emqx-operator.sh
 kubectl create namespace emqx
 kubectl apply -f emqx.yaml
-kubectl apply -f ilb-svc.yaml                                                                                        # debug: kubectl get events --all-namespaces --watch
 kubectl -n emqx wait --for=condition=Ready --all pods --timeout=120s
+kubectl -n emqx get svc emqx-dashboard
+kubectl apply -f ilb-svc.yaml
+# debug: kubectl get events --all-namespaces --watch
 ```
 
 ## Install loadgen
