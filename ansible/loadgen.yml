@@ -1,3 +1,21 @@
 - hosts: loadgen
+  vars:
+    ip_list: ["{{ ansible_default_ipv4.address }}"]
+  pre_tasks:
+    - name: Generate IP addresses
+      set_fact:
+        ip_list: "{{ ip_list + [ip_alias_subnet | ansible.utils.ipmath(item)] }}"
+      loop: "{{ range(0, 16) }}"
+    - name: Show list of IP addresses
+      debug:
+        var: ip_list
+    - name: Copy kernel-tuning.sh
+      ansible.builtin.copy:
+        src: kernel-tuning.sh
+        dest: /tmp/kernel-tuning.sh
+        mode: '0755'
+    - name: Tune kernel parameters
+      become: yes
+      ansible.builtin.shell: /tmp/kernel-tuning.sh
   roles:
     - emqtt_bench

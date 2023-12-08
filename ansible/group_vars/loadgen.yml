@@ -1,1 +1,1 @@
-emqtt_bench_scenario: "conn -c 250000 -i 10"
+emqtt_bench_scenario: "conn -c 500000 -i 5"

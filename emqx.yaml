@@ -22,6 +22,9 @@ spec:
   replicantTemplate:
     spec:
       replicas: 3
+    metadata:
+      labels:
+        app: emqx
   listenersServiceTemplate:
     spec:
       type: LoadBalancer
