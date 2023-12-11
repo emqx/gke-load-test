@@ -23,27 +23,33 @@ gcloud config set compute/zone europe-central2-a
 ## Install emqx
 
 ```bash
-./create-gke.sh
+gcloud container clusters create emqx \
+    --machine-type e2-standard-8 \
+    --zone europe-central2-a \
+    --node-locations europe-central2-a
+gcloud container clusters get-credentials emqx
+./generate-ansible-inventory.sh
+ansible-playbook ansible/gke.yml
 ./install-emqx-operator.sh
 kubectl create namespace emqx
 kubectl apply -f emqx.yaml
+# give it a few sec before running the next command
 kubectl -n emqx wait --for=condition=Ready --all pods --timeout=120s
 kubectl -n emqx get svc emqx-dashboard
-kubectl apply -f ilb-svc.yaml
 # debug: kubectl get events --all-namespaces --watch
 ```
 
 ## Install loadgen
 
 ```bash
-for i in $(seq 1 5); do gcloud compute instances create loadgen-$i --network-interface "subnet=default,aliases=10.186.$i.0/28"  --image-project=ubuntu-os-cloud --image-family=ubuntu-2204-lts --machine-type=e2-standard-2 &; done
+for i in $(seq 1 5); do gcloud compute instances create loadgen-$i --network-interface "subnet=default,aliases=10.186.$((i+1)).0/28" --image-project=ubuntu-os-cloud --image-family=ubuntu-2204-lts --machine-type=e2-standard-4 &; done
 # wait for all instances to be ready
 # init ssh connection
 gcloud compute ssh loadgen-1
 # may need to adjust the subnet prefix based on region
 # this one is for europe-central2-a
 ./generate-ansible-inventory.sh '10.186' 16
-ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get svc ilb -o json | jq -r '.status.loadBalancer.ingress[0].ip')"
+ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get endpoints/emqx-listeners -o json | jq '.subsets[].addresses | map(.ip) | join(",")' -r)"
 ansible loadgen -m command -a 'systemctl start emqtt-bench' --become
 ```
 

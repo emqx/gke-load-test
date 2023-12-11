@@ -17,5 +17,10 @@
     - name: Tune kernel parameters
       become: yes
       ansible.builtin.shell: /tmp/kernel-tuning.sh
+    - name: Install GCP cloud-ops agent
+      become: yes
+      ansible.builtin.shell: |
+        curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+        bash add-google-cloud-ops-agent-repo.sh --also-install
   roles:
     - emqtt_bench

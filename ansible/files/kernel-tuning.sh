@@ -6,6 +6,12 @@ echo "session required pam_limits.so" >> /etc/pam.d/common-session
 echo "*      soft    nofile      10000000"  >> /etc/security/limits.conf
 echo "*      hard    nofile      100000000"  >> /etc/security/limits.conf
 
+echo 'DefaultLimitNOFILE=2097152' >> /etc/systemd/system.conf
+echo >> /etc/security/limits.conf << EOF
+*      soft   nofile      2097152
+*      hard   nofile      2097152
+EOF
+
 cat >> /etc/sysctl.d/99-sysctl.conf <<EOF
 net.core.netdev_max_backlog=16384
 net.core.optmem_max=16777216
@@ -28,9 +34,3 @@ EOF
 sysctl --load=/etc/sysctl.d/99-sysctl.conf
 
 ulimit -n 2097152
-
-echo 'DefaultLimitNOFILE=2097152' >> /etc/systemd/system.conf
-echo >> /etc/security/limits.conf << EOF
-*      soft   nofile      2097152
-*      hard   nofile      2097152
-EOF
