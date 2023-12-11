@@ -11,7 +11,7 @@
 gcloud init
 gcloud auth login
 gcloud components update
-export PROJECT=clear-healer-407411
+export PROJECT=<your project id>
 gcloud auth application-default set-quota-project $PROJECT
 gcloud config set project $PROJECT
 gcloud services enable container.googleapis.com
