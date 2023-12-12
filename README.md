@@ -2,7 +2,9 @@
 
 ## Pre-requisites
 
-- [gcloud](https://cloud.google.com/sdk/docs/install)
+- [GCP project](https://cloud.google.com/resource-manager/docs/creating-managing-projects)
+- [gcloud CLI](https://cloud.google.com/sdk/docs/install)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 - [ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html#installing-and-upgrading-ansible-with-pip)
 
 ## Run once
@@ -20,7 +22,7 @@ gcloud config set compute/region europe-central2
 gcloud config set compute/zone europe-central2-a
 ```
 
-## Install emqx
+## Create EMQX cluster in GKE
 
 ```bash
 gcloud container clusters create emqx \
@@ -33,22 +35,30 @@ ansible-playbook ansible/gke.yml
 ./install-emqx-operator.sh
 kubectl create namespace emqx
 kubectl apply -f emqx.yaml
-# give it a few sec before running the next command
-kubectl -n emqx wait --for=condition=Ready --all pods --timeout=120s
+kubectl -n emqx wait --for=condition=Ready emqx emqx --timeout=120s
 kubectl -n emqx get svc emqx-dashboard
-# debug: kubectl get events --all-namespaces --watch
+# internal LB for loadgens to connect to
+kubectl apply -f ilb-svc.yaml
 ```
 
-## Install loadgen
+## Create loadgen VMs
 
 ```bash
-for i in $(seq 1 5); do gcloud compute instances create loadgen-$i --network-interface "subnet=default,aliases=10.186.$((i+1)).0/28" --image-project=ubuntu-os-cloud --image-family=ubuntu-2204-lts --machine-type=e2-standard-4 &; done
-# wait for all instances to be ready
-# init ssh connection
+for i in $(seq 1 5); do
+    gcloud compute instances create loadgen-$i \
+        --zone europe-central2-a \
+        --network-interface "subnet=default,aliases=10.186.$((i+1)).0/28" \
+        --image-project ubuntu-os-cloud \
+        --image-family ubuntu-2204-lts \
+        --machine-type e2-standard-4;
+done
+# init ssh connection credentials
 gcloud compute ssh loadgen-1
 # may need to adjust the subnet prefix based on region
 # this one is for europe-central2-a
 ./generate-ansible-inventory.sh '10.186' 16
+# ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get svc haproxy-ingress -o json | jq -r '.status.loadBalancer.ingress[0].ip')"
+# ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get svc ilb -o json | jq -r '.status.loadBalancer.ingress[0].ip')"
 ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get endpoints/emqx-listeners -o json | jq '.subsets[].addresses | map(.ip) | join(",")' -r)"
 ansible loadgen -m command -a 'systemctl start emqtt-bench' --become
 ```
@@ -57,13 +67,16 @@ ansible loadgen -m command -a 'systemctl start emqtt-bench' --become
 
 ```bash
 gcloud compute instances delete $(seq -s ' ' -f 'loadgen-%g' 1 5)
-gcloud container clusters delete emqx
+kubectl delete -f ilb-svc.yaml
+kubectl delete -f emqx.yaml
 ```
 
 ## Troubleshoting
 
 ```bash
-# ssh on the pool machine
+# watch events
+kubectl get events --all-namespaces --watch
+# ssh on the GKE pool node, e.g.
 gcloud compute ssh gke-emqx-default-pool-8ffb4312-bjcg
 # list pods
 crictl pods
