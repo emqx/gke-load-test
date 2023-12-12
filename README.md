@@ -37,11 +37,11 @@ kubectl create namespace emqx
 kubectl apply -f emqx.yaml
 kubectl -n emqx wait --for=condition=Ready emqx emqx --timeout=120s
 kubectl -n emqx get svc emqx-dashboard
-# internal LB for loadgens to connect to
-kubectl apply -f ilb-svc.yaml
 ```
 
 ## Create loadgen VMs
+
+You may need to adjust the subnet prefix based on region/zone, `10.186.x.x.` is for europe-central2-a
 
 ```bash
 for i in $(seq 1 5); do
@@ -54,12 +54,11 @@ for i in $(seq 1 5); do
 done
 # init ssh connection credentials
 gcloud compute ssh loadgen-1
-# may need to adjust the subnet prefix based on region
-# this one is for europe-central2-a
 ./generate-ansible-inventory.sh '10.186' 16
-# ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get svc haproxy-ingress -o json | jq -r '.status.loadBalancer.ingress[0].ip')"
-# ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get svc ilb -o json | jq -r '.status.loadBalancer.ingress[0].ip')"
-ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get endpoints/emqx-listeners -o json | jq '.subsets[].addresses | map(.ip) | join(",")' -r)"
+# point loadgens to LB
+ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get svc emqx-listeners -o json  | jq '.status.loadBalancer.ingress | map(.ip) | join(",")' -r)"
+# point loadgens to node endpoints
+# ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get endpoints/emqx-listeners -o json | jq '.subsets[].addresses | map(.ip) | join(",")' -r)"
 ansible loadgen -m command -a 'systemctl start emqtt-bench' --become
 ```
 
@@ -67,8 +66,8 @@ ansible loadgen -m command -a 'systemctl start emqtt-bench' --become
 
 ```bash
 gcloud compute instances delete $(seq -s ' ' -f 'loadgen-%g' 1 5)
-kubectl delete -f ilb-svc.yaml
 kubectl delete -f emqx.yaml
+gcloud container clusters delete emqx
 ```
 
 ## Troubleshoting
