@@ -2,7 +2,7 @@
   vars:
     ip_list: []
     emqtt_bench_clients_per_node: 500000
-    emqtt_bench_connect_interval: 10
+    emqtt_bench_connect_interval: 5
   pre_tasks:
     - name: Tune kernel parameters
       become: yes

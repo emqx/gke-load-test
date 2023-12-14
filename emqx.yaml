@@ -21,9 +21,6 @@ spec:
         accessModes:
           - ReadWriteOnce
   replicantTemplate:
-    metadata:
-      labels:
-        app: emqx
     spec:
       replicas: 3
   listenersServiceTemplate:
@@ -32,6 +29,13 @@ spec:
         networking.gke.io/load-balancer-type: "Internal"
     spec:
       type: LoadBalancer
+      # type: NodePort
+      # externalTrafficPolicy: Local
+      # ports:
+      #   - name: mqtt
+      #     protocol: TCP
+      #     port: 1883
+      #     targetPort: 1883
   dashboardServiceTemplate:
     spec:
       type: LoadBalancer

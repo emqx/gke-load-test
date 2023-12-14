@@ -14,21 +14,20 @@ gcloud init
 gcloud auth login
 gcloud components update
 export PROJECT=<your project id>
+export REGION=europe-central2
+export ZONE=europe-central2-a
 gcloud auth application-default set-quota-project $PROJECT
 gcloud config set project $PROJECT
 gcloud services enable container.googleapis.com
 gcloud services enable compute.googleapis.com
-gcloud config set compute/region europe-central2
-gcloud config set compute/zone europe-central2-a
+gcloud config set compute/region $REGION
+gcloud config set compute/zone $ZONE
 ```
 
 ## Create EMQX cluster in GKE
 
 ```bash
-gcloud container clusters create emqx \
-    --machine-type e2-standard-8 \
-    --zone europe-central2-a \
-    --node-locations europe-central2-a
+gcloud container clusters create emqx --machine-type e2-standard-8 --location $ZONE
 gcloud container clusters get-credentials emqx
 ./generate-ansible-inventory.sh
 ansible-playbook ansible/gke.yml
@@ -36,7 +35,7 @@ ansible-playbook ansible/gke.yml
 kubectl create namespace emqx
 kubectl apply -f emqx.yaml
 kubectl -n emqx wait --for=condition=Ready emqx emqx --timeout=120s
-kubectl -n emqx get svc emqx-dashboard
+kubectl -n emqx get svc
 ```
 
 ## Create loadgen VMs
@@ -44,17 +43,20 @@ kubectl -n emqx get svc emqx-dashboard
 You may need to adjust the subnet prefix based on region/zone, `10.186.x.x.` is for europe-central2-a
 
 ```bash
+subnet_prefix="$(gcloud compute networks subnets list --regions $REGION --format json | jq '.[0].ipCidrRange' -r | cut -d'.' -f1,2)"
 for i in $(seq 1 5); do
     gcloud compute instances create loadgen-$i \
-        --zone europe-central2-a \
-        --network-interface "subnet=default,aliases=10.186.$((i+1)).0/28" \
+        --zone $ZONE \
+        --network-interface "subnet=default,aliases=$subnet_prefix.$i.0/28" \
         --image-project ubuntu-os-cloud \
         --image-family ubuntu-2204-lts \
         --machine-type e2-standard-4;
 done
 # init ssh connection credentials
 gcloud compute ssh loadgen-1
-./generate-ansible-inventory.sh '10.186' 16
+./generate-ansible-inventory.sh "$subnet_prefix" 16
+# point loadgens to NodePort
+# ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get svc emqx-listeners -o json | jq '.spec.clusterIPs | join(",")' -r)"
 # point loadgens to LB
 ansible-playbook ansible/loadgen.yml --extra-vars emqtt_bench_targets="$(kubectl -n emqx get svc emqx-listeners -o json  | jq '.status.loadBalancer.ingress | map(.ip) | join(",")' -r)"
 # point loadgens to node endpoints
@@ -65,8 +67,8 @@ ansible loadgen -m command -a 'systemctl start emqtt-bench' --become
 ## Cleanup
 
 ```bash
-gcloud compute instances delete $(seq -s ' ' -f 'loadgen-%g' 1 5)
 kubectl delete -f emqx.yaml
+gcloud compute instances delete $(seq -s ' ' -f 'loadgen-%g' 1 5)
 gcloud container clusters delete emqx
 ```
 
