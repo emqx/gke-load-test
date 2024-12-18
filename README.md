@@ -27,12 +27,12 @@ gcloud config set compute/zone $ZONE
 ## Create EMQX cluster in GKE
 
 ```bash
-gcloud container clusters create emqx --machine-type e2-standard-8 --location $ZONE
+gcloud container clusters create emqx
 gcloud container clusters get-credentials emqx
-./generate-ansible-inventory.sh
-ansible-playbook ansible/gke.yml
+# ./generate-ansible-inventory.sh
+# ansible-playbook ansible/gke.yml
 ./install-emqx-operator.sh
-kubectl create namespace emqx
+# kubectl create namespace emqx
 kubectl apply -f emqx.yaml
 kubectl -n emqx wait --for=condition=Ready emqx emqx --timeout=120s
 kubectl -n emqx get svc

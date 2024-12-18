@@ -4,7 +4,8 @@ metadata:
   name: emqx
   namespace: emqx
 spec:
-  image: emqx/emqx-enterprise:5.3.2
+  serviceAccountName: controller-manager
+  image: emqx/emqx-enterprise:5.8.3
   config:
     data: |
       log.console.level = warning
